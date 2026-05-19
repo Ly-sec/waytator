@@ -146,9 +146,6 @@ struct _WaytatorWindow {
   gboolean auto_copy_latest_change;
   double window_background_opacity;
   double floating_controls_opacity;
-  GdkRGBA default_primary_color;
-  GdkRGBA default_highlighter_color;
-  GdkRGBA default_fill_color;
   double tool_widths[WAYTATOR_TOOL_MOVE + 1];
   GdkRGBA tool_colors[WAYTATOR_TOOL_MOVE + 1];
   GdkRGBA tool_fill_colors[WAYTATOR_TOOL_MOVE + 1];

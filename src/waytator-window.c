@@ -45,48 +45,64 @@ static void waytator_window_update_window_background(WaytatorWindow *self);
 static void waytator_window_update_widget_appearance(WaytatorWindow *self);
 static void waytator_window_save_preferences(WaytatorWindow *self);
 
+#define WAYTATOR_STATE_GROUP "state"
+
+static const char *
+waytator_tool_key_name(WaytatorTool tool)
+{
+  switch (tool) {
+  case WAYTATOR_TOOL_PAN:       return "pan";
+  case WAYTATOR_TOOL_CROP:      return "crop";
+  case WAYTATOR_TOOL_BRUSH:     return "brush";
+  case WAYTATOR_TOOL_MARKER:    return "marker";
+  case WAYTATOR_TOOL_ERASER:    return "eraser";
+  case WAYTATOR_TOOL_RECTANGLE: return "rectangle";
+  case WAYTATOR_TOOL_CIRCLE:    return "circle";
+  case WAYTATOR_TOOL_LINE:      return "line";
+  case WAYTATOR_TOOL_ARROW:     return "arrow";
+  case WAYTATOR_TOOL_OCR:       return "ocr";
+  case WAYTATOR_TOOL_TEXT:      return "text";
+  case WAYTATOR_TOOL_BLUR:      return "blur";
+  case WAYTATOR_TOOL_MOVE:      return "move";
+  default:                      return "brush";
+  }
+}
+
+static WaytatorTool
+waytator_tool_from_key_name(const char *name)
+{
+  if (name == NULL)                         return WAYTATOR_TOOL_BRUSH;
+  if (g_strcmp0(name, "pan") == 0)          return WAYTATOR_TOOL_PAN;
+  if (g_strcmp0(name, "crop") == 0)         return WAYTATOR_TOOL_CROP;
+  if (g_strcmp0(name, "brush") == 0)        return WAYTATOR_TOOL_BRUSH;
+  if (g_strcmp0(name, "marker") == 0)       return WAYTATOR_TOOL_MARKER;
+  if (g_strcmp0(name, "eraser") == 0)       return WAYTATOR_TOOL_ERASER;
+  if (g_strcmp0(name, "rectangle") == 0)    return WAYTATOR_TOOL_RECTANGLE;
+  if (g_strcmp0(name, "circle") == 0)       return WAYTATOR_TOOL_CIRCLE;
+  if (g_strcmp0(name, "line") == 0)         return WAYTATOR_TOOL_LINE;
+  if (g_strcmp0(name, "arrow") == 0)        return WAYTATOR_TOOL_ARROW;
+  if (g_strcmp0(name, "ocr") == 0)          return WAYTATOR_TOOL_OCR;
+  if (g_strcmp0(name, "text") == 0)         return WAYTATOR_TOOL_TEXT;
+  if (g_strcmp0(name, "blur") == 0)         return WAYTATOR_TOOL_BLUR;
+  if (g_strcmp0(name, "move") == 0)         return WAYTATOR_TOOL_MOVE;
+  return WAYTATOR_TOOL_BRUSH;
+}
+
 static void
 waytator_window_apply_default_tool_colors(WaytatorWindow *self)
 {
-  int i;
+  const GdkRGBA primary = { 0.96, 0.2, 0.28, 1.0 };
+  const GdkRGBA highlighter = { 1.0, 0.91, 0.2, 1.0 };
+  const GdkRGBA fill = { 0.96, 0.2, 0.28, 0.0 };
 
-  for (i = 0; i <= WAYTATOR_TOOL_MOVE; i++) {
-    self->tool_colors[i] = self->default_primary_color;
-    self->tool_fill_colors[i] = self->default_fill_color;
+  for (int i = 0; i <= WAYTATOR_TOOL_MOVE; i++) {
+    self->tool_colors[i] = primary;
+    self->tool_fill_colors[i] = fill;
   }
 
-  self->tool_colors[WAYTATOR_TOOL_MARKER] = self->default_highlighter_color;
+  self->tool_colors[WAYTATOR_TOOL_MARKER] = highlighter;
   self->tool_colors[WAYTATOR_TOOL_BLUR] = (GdkRGBA){0.0, 0.0, 0.0, 1.0};
   self->tool_colors[WAYTATOR_TOOL_ERASER] = (GdkRGBA){1.0, 1.0, 1.0, 1.0};
-}
-
-static void
-waytator_window_sync_active_tool_colors(WaytatorWindow *self)
-{
-  if (self->color_button == NULL || self->fill_color_button == NULL)
-    return;
-
-  self->updating_ui = TRUE;
-  gtk_color_dialog_button_set_rgba(self->color_button, &self->tool_colors[self->active_tool]);
-  gtk_color_dialog_button_set_rgba(self->fill_color_button, &self->tool_fill_colors[self->active_tool]);
-  self->updating_ui = FALSE;
-}
-
-static gboolean
-waytator_window_load_rgba_preference(GKeyFile     *key_file,
-                                     const char   *key,
-                                     GdkRGBA      *rgba)
-{
-  g_autofree char *value = NULL;
-
-  if (!g_key_file_has_key(key_file, WAYTATOR_SETTINGS_GROUP, key, NULL))
-    return FALSE;
-
-  value = g_key_file_get_string(key_file, WAYTATOR_SETTINGS_GROUP, key, NULL);
-  if (value == NULL)
-    return FALSE;
-
-  return gdk_rgba_parse(rgba, value);
 }
 
 static const char *
@@ -292,15 +308,60 @@ waytator_window_load_preferences(WaytatorWindow *self)
     }
   }
 
-  waytator_window_load_rgba_preference(key_file,
-                                       "default_primary_color",
-                                       &self->default_primary_color);
-  waytator_window_load_rgba_preference(key_file,
-                                       "default_highlighter_color",
-                                       &self->default_highlighter_color);
-  waytator_window_load_rgba_preference(key_file,
-                                       "default_fill_color",
-                                       &self->default_fill_color);
+}
+
+static void
+waytator_window_load_state(WaytatorWindow *self)
+{
+  g_autofree char *path = waytator_window_preferences_path();
+  g_autoptr(GKeyFile) key_file = g_key_file_new();
+
+  if (!g_key_file_load_from_file(key_file, path, G_KEY_FILE_NONE, NULL))
+    return;
+
+  if (!g_key_file_has_group(key_file, WAYTATOR_STATE_GROUP))
+    return;
+
+  if (g_key_file_has_key(key_file, WAYTATOR_STATE_GROUP, "active_tool", NULL)) {
+    g_autofree char *name = g_key_file_get_string(key_file, WAYTATOR_STATE_GROUP, "active_tool", NULL);
+
+    self->active_tool = waytator_tool_from_key_name(name);
+  }
+
+  if (g_key_file_has_key(key_file, WAYTATOR_STATE_GROUP, "blur_type", NULL)) {
+    const int bt = g_key_file_get_integer(key_file, WAYTATOR_STATE_GROUP, "blur_type", NULL);
+
+    if (bt == 0 || bt == 1)
+      self->blur_type = bt;
+  }
+
+  for (int i = 0; i <= WAYTATOR_TOOL_MOVE; i++) {
+    const char *name = waytator_tool_key_name(i);
+    g_autofree char *width_key = g_strdup_printf("tool_width_%s", name);
+    g_autofree char *color_key = g_strdup_printf("tool_color_%s", name);
+    g_autofree char *fill_key = g_strdup_printf("tool_fill_color_%s", name);
+
+    if (g_key_file_has_key(key_file, WAYTATOR_STATE_GROUP, width_key, NULL)) {
+      const double w = g_key_file_get_double(key_file, WAYTATOR_STATE_GROUP, width_key, NULL);
+
+      if (w >= 1.0 && w <= 200.0)
+        self->tool_widths[i] = w;
+    }
+
+    if (g_key_file_has_key(key_file, WAYTATOR_STATE_GROUP, color_key, NULL)) {
+      g_autofree char *val = g_key_file_get_string(key_file, WAYTATOR_STATE_GROUP, color_key, NULL);
+
+      if (val != NULL)
+        gdk_rgba_parse(&self->tool_colors[i], val);
+    }
+
+    if (g_key_file_has_key(key_file, WAYTATOR_STATE_GROUP, fill_key, NULL)) {
+      g_autofree char *val = g_key_file_get_string(key_file, WAYTATOR_STATE_GROUP, fill_key, NULL);
+
+      if (val != NULL)
+        gdk_rgba_parse(&self->tool_fill_colors[i], val);
+    }
+  }
 }
 
 static void
@@ -310,9 +371,6 @@ waytator_window_save_preferences(WaytatorWindow *self)
   g_autofree char *directory = g_path_get_dirname(path);
   g_autoptr(GKeyFile) key_file = g_key_file_new();
   g_autofree char *data = NULL;
-  g_autofree char *default_primary_color = gdk_rgba_to_string(&self->default_primary_color);
-  g_autofree char *default_highlighter_color = gdk_rgba_to_string(&self->default_highlighter_color);
-  g_autofree char *default_fill_color = gdk_rgba_to_string(&self->default_fill_color);
   gsize data_length = 0;
   g_autoptr(GError) error = NULL;
 
@@ -361,17 +419,26 @@ waytator_window_save_preferences(WaytatorWindow *self)
                          "angle_snap_modifiers",
                          self->angle_snap_modifiers);
   g_key_file_set_string(key_file,
-                        WAYTATOR_SETTINGS_GROUP,
-                        "default_primary_color",
-                        default_primary_color);
-  g_key_file_set_string(key_file,
-                        WAYTATOR_SETTINGS_GROUP,
-                        "default_highlighter_color",
-                        default_highlighter_color);
-  g_key_file_set_string(key_file,
-                        WAYTATOR_SETTINGS_GROUP,
-                        "default_fill_color",
-                        default_fill_color);
+                        WAYTATOR_STATE_GROUP,
+                        "active_tool",
+                        waytator_tool_key_name(self->active_tool));
+  g_key_file_set_integer(key_file,
+                         WAYTATOR_STATE_GROUP,
+                         "blur_type",
+                         self->blur_type);
+
+  for (int i = 0; i <= WAYTATOR_TOOL_MOVE; i++) {
+    const char *name = waytator_tool_key_name(i);
+    g_autofree char *width_key = g_strdup_printf("tool_width_%s", name);
+    g_autofree char *color_key = g_strdup_printf("tool_color_%s", name);
+    g_autofree char *fill_key = g_strdup_printf("tool_fill_color_%s", name);
+    g_autofree char *color_str = gdk_rgba_to_string(&self->tool_colors[i]);
+    g_autofree char *fill_str = gdk_rgba_to_string(&self->tool_fill_colors[i]);
+
+    g_key_file_set_double(key_file, WAYTATOR_STATE_GROUP, width_key, self->tool_widths[i]);
+    g_key_file_set_string(key_file, WAYTATOR_STATE_GROUP, color_key, color_str);
+    g_key_file_set_string(key_file, WAYTATOR_STATE_GROUP, fill_key, fill_str);
+  }
 
   if (g_mkdir_with_parents(directory, 0700) != 0) {
     g_warning("Failed to create preferences directory %s", directory);
@@ -560,69 +627,6 @@ waytator_window_angle_snap_modifier_changed(AdwComboRow    *row,
 }
 
 static void
-waytator_window_default_primary_color_changed(GObject    *object,
-                                              GParamSpec *pspec,
-                                              gpointer    user_data)
-{
-  WaytatorWindow *self = WAYTATOR_WINDOW(user_data);
-  const GdkRGBA *rgba;
-
-  (void) pspec;
-
-  rgba = gtk_color_dialog_button_get_rgba(GTK_COLOR_DIALOG_BUTTON(object));
-  if (rgba == NULL)
-    return;
-
-  self->default_primary_color = *rgba;
-  waytator_window_apply_default_tool_colors(self);
-  waytator_window_sync_active_tool_colors(self);
-  gtk_widget_queue_draw(GTK_WIDGET(self->drawing_area));
-  waytator_window_save_preferences(self);
-}
-
-static void
-waytator_window_default_highlighter_color_changed(GObject    *object,
-                                                  GParamSpec *pspec,
-                                                  gpointer    user_data)
-{
-  WaytatorWindow *self = WAYTATOR_WINDOW(user_data);
-  const GdkRGBA *rgba;
-
-  (void) pspec;
-
-  rgba = gtk_color_dialog_button_get_rgba(GTK_COLOR_DIALOG_BUTTON(object));
-  if (rgba == NULL)
-    return;
-
-  self->default_highlighter_color = *rgba;
-  waytator_window_apply_default_tool_colors(self);
-  waytator_window_sync_active_tool_colors(self);
-  gtk_widget_queue_draw(GTK_WIDGET(self->drawing_area));
-  waytator_window_save_preferences(self);
-}
-
-static void
-waytator_window_default_fill_color_changed(GObject    *object,
-                                           GParamSpec *pspec,
-                                           gpointer    user_data)
-{
-  WaytatorWindow *self = WAYTATOR_WINDOW(user_data);
-  const GdkRGBA *rgba;
-
-  (void) pspec;
-
-  rgba = gtk_color_dialog_button_get_rgba(GTK_COLOR_DIALOG_BUTTON(object));
-  if (rgba == NULL)
-    return;
-
-  self->default_fill_color = *rgba;
-  waytator_window_apply_default_tool_colors(self);
-  waytator_window_sync_active_tool_colors(self);
-  gtk_widget_queue_draw(GTK_WIDGET(self->drawing_area));
-  waytator_window_save_preferences(self);
-}
-
-static void
 waytator_window_apply_copy_shortcut_row(GtkButton *button,
                                         gpointer   user_data)
 {
@@ -767,9 +771,6 @@ waytator_window_show_preferences(WaytatorWindow *self)
   AdwActionRow *opacity_row;
   AdwActionRow *floating_controls_opacity_row;
   AdwActionRow *copy_shortcut_row;
-  AdwActionRow *default_primary_color_row;
-  AdwActionRow *default_highlighter_color_row;
-  AdwActionRow *default_fill_color_row;
   GtkStringList *model;
   GtkStringList *background_model;
   GtkStringList *angle_snap_model;
@@ -780,13 +781,7 @@ waytator_window_show_preferences(WaytatorWindow *self)
   GtkWidget *copy_shortcut_label;
   GtkWidget *copy_shortcut_button;
   GtkWidget *copy_shortcut_button_box;
-  GtkWidget *default_primary_color_button;
-  GtkWidget *default_highlighter_color_button;
-  GtkWidget *default_fill_color_button;
   GtkEventController *copy_shortcut_key_controller;
-  GtkColorDialog *default_primary_color_dialog;
-  GtkColorDialog *default_highlighter_color_dialog;
-  GtkColorDialog *default_fill_color_dialog;
 
   dialog = ADW_PREFERENCES_DIALOG(adw_preferences_dialog_new());
   page = ADW_PREFERENCES_PAGE(adw_preferences_page_new());
@@ -804,9 +799,6 @@ waytator_window_show_preferences(WaytatorWindow *self)
   opacity_row = ADW_ACTION_ROW(adw_action_row_new());
   floating_controls_opacity_row = ADW_ACTION_ROW(adw_action_row_new());
   copy_shortcut_row = ADW_ACTION_ROW(adw_action_row_new());
-  default_primary_color_row = ADW_ACTION_ROW(adw_action_row_new());
-  default_highlighter_color_row = ADW_ACTION_ROW(adw_action_row_new());
-  default_fill_color_row = ADW_ACTION_ROW(adw_action_row_new());
   opacity_adjustment = gtk_adjustment_new(self->window_background_opacity, 0.1, 1.0, 0.1, 0.1, 0.0);
   opacity_spin_button = GTK_SPIN_BUTTON(gtk_spin_button_new(opacity_adjustment, 0.1, 1));
   floating_controls_opacity_adjustment = gtk_adjustment_new(self->floating_controls_opacity, 0.0, 1.0, 0.1, 0.1, 0.0);
@@ -815,12 +807,6 @@ waytator_window_show_preferences(WaytatorWindow *self)
   copy_shortcut_button = gtk_button_new();
   copy_shortcut_button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
   copy_shortcut_key_controller = gtk_event_controller_key_new();
-  default_primary_color_dialog = gtk_color_dialog_new();
-  default_highlighter_color_dialog = gtk_color_dialog_new();
-  default_fill_color_dialog = gtk_color_dialog_new();
-  default_primary_color_button = gtk_color_dialog_button_new(default_primary_color_dialog);
-  default_highlighter_color_button = gtk_color_dialog_button_new(default_highlighter_color_dialog);
-  default_fill_color_button = gtk_color_dialog_button_new(default_fill_color_dialog);
   model = gtk_string_list_new((const char *[]) {
     waytator_window_eraser_style_label(WAYTATOR_ERASER_STYLE_DUAL_RING),
     waytator_window_eraser_style_label(WAYTATOR_ERASER_STYLE_DASHED_RING),
@@ -911,32 +897,9 @@ waytator_window_show_preferences(WaytatorWindow *self)
   adw_switch_row_set_active(auto_copy_latest_change_row, self->auto_copy_latest_change);
   adw_preferences_row_set_title(ADW_PREFERENCES_ROW(highlighter_overlap_row), "Allow highlighter strokes to overlap");
   adw_switch_row_set_active(highlighter_overlap_row, self->allow_highlighter_overlap);
-  gtk_color_dialog_set_with_alpha(default_fill_color_dialog, TRUE);
-  adw_preferences_row_set_title(ADW_PREFERENCES_ROW(default_primary_color_row), "Primary");
-  adw_preferences_row_set_title(ADW_PREFERENCES_ROW(default_highlighter_color_row), "Highlighter");
-  adw_preferences_row_set_title(ADW_PREFERENCES_ROW(default_fill_color_row), "Fill");
-  adw_action_row_set_subtitle(default_primary_color_row, "Used by most drawing tools");
-  adw_action_row_set_subtitle(default_highlighter_color_row, "Used by the highlighter tool");
-  adw_action_row_set_subtitle(default_fill_color_row, "Used by tools with a fill option");
-  gtk_widget_set_valign(default_primary_color_button, GTK_ALIGN_CENTER);
-  gtk_widget_set_valign(default_highlighter_color_button, GTK_ALIGN_CENTER);
-  gtk_widget_set_valign(default_fill_color_button, GTK_ALIGN_CENTER);
-  gtk_color_dialog_button_set_rgba(GTK_COLOR_DIALOG_BUTTON(default_primary_color_button), &self->default_primary_color);
-  gtk_color_dialog_button_set_rgba(GTK_COLOR_DIALOG_BUTTON(default_highlighter_color_button), &self->default_highlighter_color);
-  gtk_color_dialog_button_set_rgba(GTK_COLOR_DIALOG_BUTTON(default_fill_color_button), &self->default_fill_color);
-  adw_action_row_add_suffix(default_primary_color_row, default_primary_color_button);
-  adw_action_row_add_suffix(default_highlighter_color_row, default_highlighter_color_button);
-  adw_action_row_add_suffix(default_fill_color_row, default_fill_color_button);
-  adw_action_row_set_activatable_widget(default_primary_color_row, default_primary_color_button);
-  adw_action_row_set_activatable_widget(default_highlighter_color_row, default_highlighter_color_button);
-  adw_action_row_set_activatable_widget(default_fill_color_row, default_fill_color_button);
-
   adw_preferences_group_add(group, GTK_WIDGET(row));
   adw_preferences_group_add(group, GTK_WIDGET(highlighter_overlap_row));
   adw_preferences_group_add(group, GTK_WIDGET(auto_copy_latest_change_row));
-  adw_preferences_group_add(group, GTK_WIDGET(default_primary_color_row));
-  adw_preferences_group_add(group, GTK_WIDGET(default_highlighter_color_row));
-  adw_preferences_group_add(group, GTK_WIDGET(default_fill_color_row));
   adw_preferences_group_add(appearance_group, GTK_WIDGET(background_mode_row));
   adw_preferences_group_add(appearance_group, GTK_WIDGET(opacity_row));
   adw_preferences_group_add(appearance_group, GTK_WIDGET(floating_controls_blur_row));
@@ -989,18 +952,6 @@ waytator_window_show_preferences(WaytatorWindow *self)
   g_signal_connect(highlighter_overlap_row,
                    "notify::active",
                    G_CALLBACK(waytator_window_highlighter_overlap_changed),
-                   self);
-  g_signal_connect(default_primary_color_button,
-                   "notify::rgba",
-                   G_CALLBACK(waytator_window_default_primary_color_changed),
-                   self);
-  g_signal_connect(default_highlighter_color_button,
-                   "notify::rgba",
-                   G_CALLBACK(waytator_window_default_highlighter_color_changed),
-                   self);
-  g_signal_connect(default_fill_color_button,
-                   "notify::rgba",
-                   G_CALLBACK(waytator_window_default_fill_color_changed),
                    self);
   g_object_set_data(G_OBJECT(copy_shortcut_enabled_row), "shortcut-row", copy_shortcut_row);
   g_object_set_data(G_OBJECT(copy_shortcut_button), "window", self);
@@ -2520,6 +2471,8 @@ waytator_window_dispose(GObject *object)
 {
   WaytatorWindow *self = WAYTATOR_WINDOW(object);
 
+  waytator_window_save_preferences(self);
+
   g_clear_object(&self->current_file);
   g_clear_pointer(&self->source_name, g_free);
   g_clear_object(&self->texture);
@@ -2674,9 +2627,6 @@ waytator_window_init_state(WaytatorWindow *self)
   self->floating_controls_blur = TRUE;
   self->auto_copy_latest_change = FALSE;
   self->floating_controls_opacity = 0.7;
-  self->default_primary_color = (GdkRGBA){0.96, 0.2, 0.28, 1.0};
-  self->default_highlighter_color = (GdkRGBA){1.0, 0.91, 0.2, 1.0};
-  self->default_fill_color = (GdkRGBA){0.96, 0.2, 0.28, 0.0};
   waytator_window_apply_copy_shortcut(self, "<Primary>c");
   waytator_window_load_preferences(self);
 
@@ -2684,6 +2634,7 @@ waytator_window_init_state(WaytatorWindow *self)
     self->tool_widths[i] = waytator_tool_width(i);
 
   waytator_window_apply_default_tool_colors(self);
+  waytator_window_load_state(self);
 }
 
 static void
@@ -2825,6 +2776,45 @@ waytator_window_class_init(WaytatorWindowClass *klass)
   waytator_window_install_actions(widget_class);
 }
 
+static GtkToggleButton *
+waytator_window_button_for_tool(WaytatorWindow *self,
+                                WaytatorTool    tool)
+{
+  switch (tool) {
+  case WAYTATOR_TOOL_PAN:       return self->pan_tool_button;
+  case WAYTATOR_TOOL_CROP:      return self->crop_tool_button;
+  case WAYTATOR_TOOL_BRUSH:     return self->brush_tool_button;
+  case WAYTATOR_TOOL_MARKER:    return self->highlighter_tool_button;
+  case WAYTATOR_TOOL_ERASER:    return self->eraser_tool_button;
+  case WAYTATOR_TOOL_RECTANGLE: return self->rectangle_tool_button;
+  case WAYTATOR_TOOL_CIRCLE:    return self->circle_tool_button;
+  case WAYTATOR_TOOL_LINE:      return self->line_tool_button;
+  case WAYTATOR_TOOL_ARROW:     return self->arrow_tool_button;
+  case WAYTATOR_TOOL_OCR:       return self->ocr_tool_button;
+  case WAYTATOR_TOOL_TEXT:      return self->text_tool_button;
+  case WAYTATOR_TOOL_BLUR:      return self->blur_tool_button;
+  case WAYTATOR_TOOL_MOVE:      return self->move_tool_button;
+  default:                      return self->brush_tool_button;
+  }
+}
+
+static void
+waytator_window_activate_tool_button(WaytatorWindow *self)
+{
+  GtkToggleButton *button = waytator_window_button_for_tool(self, self->active_tool);
+
+  if (button != NULL && !gtk_toggle_button_get_active(button))
+    gtk_toggle_button_set_active(button, TRUE);
+
+  self->updating_ui = TRUE;
+  gtk_range_set_value(GTK_RANGE(self->width_scale), self->tool_widths[self->active_tool]);
+  gtk_color_dialog_button_set_rgba(self->color_button, &self->tool_colors[self->active_tool]);
+  gtk_color_dialog_button_set_rgba(self->fill_color_button, &self->tool_fill_colors[self->active_tool]);
+  if (self->active_tool == WAYTATOR_TOOL_BLUR)
+    gtk_drop_down_set_selected(self->blur_type_dropdown, self->blur_type);
+  self->updating_ui = FALSE;
+}
+
 static void
 waytator_window_init(WaytatorWindow *self)
 {
@@ -2849,9 +2839,16 @@ waytator_window_init(WaytatorWindow *self)
   g_signal_connect(self->ocr_panel_close_button, "clicked", G_CALLBACK(waytator_window_ocr_panel_close_clicked), self);
   g_signal_connect(self->ocr_panel_bottom_sheet, "notify::open", G_CALLBACK(waytator_window_ocr_panel_open_changed), self);
 
+  waytator_window_activate_tool_button(self);
   waytator_window_update_size_controls(self);
   waytator_window_update_tool_ui(self);
   waytator_window_sync_state(self);
+}
+
+void
+waytator_window_save_state(WaytatorWindow *self)
+{
+  waytator_window_save_preferences(self);
 }
 
 WaytatorWindow *

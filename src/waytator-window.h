@@ -17,4 +17,6 @@ gboolean waytator_window_open_bytes(WaytatorWindow *self,
                                     const char     *display_name,
                                     GError        **error);
 
+void waytator_window_save_state(WaytatorWindow *self);
+
 G_END_DECLS

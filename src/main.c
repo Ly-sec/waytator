@@ -78,6 +78,18 @@ quit_action(GSimpleAction *action,
   g_application_quit(app);
 }
 
+static void
+shutdown_action(GApplication *app,
+                gpointer      user_data)
+{
+  GtkWindow *window = gtk_application_get_active_window(GTK_APPLICATION(app));
+
+  (void) user_data;
+
+  if (window != NULL && WAYTATOR_IS_WINDOW(window))
+    waytator_window_save_state(WAYTATOR_WINDOW(window));
+}
+
 static const GActionEntry app_actions[] = {
   { .name = "quit", .activate = quit_action },
 };
@@ -240,6 +252,7 @@ main(int   argc,
   g_signal_connect(app, "activate", G_CALLBACK(app_activate), NULL);
   g_signal_connect(app, "open", G_CALLBACK(app_open), NULL);
   g_signal_connect(app, "command-line", G_CALLBACK(app_command_line), NULL);
+  g_signal_connect(app, "shutdown", G_CALLBACK(shutdown_action), NULL);
 
   status = g_application_run(G_APPLICATION(app), run_argc, run_argv);
   g_free(stdin_argv);
