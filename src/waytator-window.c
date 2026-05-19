@@ -2542,8 +2542,6 @@ waytator_window_bind_template_children(GtkWidgetClass *widget_class)
   gtk_widget_class_bind_template_child(widget_class, WaytatorWindow, brush_tool_button);
   gtk_widget_class_bind_template_child(widget_class, WaytatorWindow, highlighter_tool_button);
   gtk_widget_class_bind_template_child(widget_class, WaytatorWindow, eraser_tool_button);
-  gtk_widget_class_bind_template_child(widget_class, WaytatorWindow, shapes_tool_button);
-  gtk_widget_class_bind_template_child(widget_class, WaytatorWindow, shapes_popover);
   gtk_widget_class_bind_template_child(widget_class, WaytatorWindow, rectangle_tool_button);
   gtk_widget_class_bind_template_child(widget_class, WaytatorWindow, circle_tool_button);
   gtk_widget_class_bind_template_child(widget_class, WaytatorWindow, line_tool_button);
@@ -2745,9 +2743,6 @@ waytator_window_setup_menu_button_popover(GtkMenuButton   *button,
 static void
 waytator_window_setup_popovers(WaytatorWindow *self)
 {
-  waytator_window_setup_menu_button_popover(self->shapes_tool_button,
-                                            GTK_ARROW_DOWN,
-                                            GTK_POS_BOTTOM);
   waytator_window_setup_menu_button_popover(self->save_button,
                                             GTK_ARROW_DOWN,
                                             GTK_POS_BOTTOM);

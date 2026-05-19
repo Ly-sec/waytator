@@ -154,18 +154,6 @@
   background-image: none;
 }
 
-.tool-group menubutton.selected-tool > button {
-  background: alpha(white, 0.16);
-  background-color: alpha(white, 0.16);
-  background-image: none;
-}
-
-.tool-group menubutton.selected-tool > button:hover {
-  background: alpha(white, 0.16);
-  background-color: alpha(white, 0.16);
-  background-image: none;
-}
-
 .tool-group image,
 .overlay-action-group image,
 .app-chrome-group image,
@@ -203,14 +191,6 @@
 
 .overlay-window-controls button:hover {
   background: alpha(white, 0.08);
-}
-
-.shape-grid {
-  margin: 0;
-}
-
-.shape-choice {
-  padding: 0;
 }
 
 .save-popover button {

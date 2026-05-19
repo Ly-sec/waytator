@@ -415,8 +415,16 @@ waytator_window_global_key_pressed(GtkEventControllerKey *controller,
       break;
     case GDK_KEY_s:
     case GDK_KEY_S:
-      gtk_menu_button_popup(self->shapes_tool_button);
-      return TRUE;
+      target = self->rectangle_tool_button;
+      break;
+    case GDK_KEY_o:
+    case GDK_KEY_O:
+      target = self->circle_tool_button;
+      break;
+    case GDK_KEY_l:
+    case GDK_KEY_L:
+      target = self->line_tool_button;
+      break;
     case GDK_KEY_h:
     case GDK_KEY_H:
       target = self->highlighter_tool_button;

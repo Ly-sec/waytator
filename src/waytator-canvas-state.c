@@ -2,31 +2,6 @@
 
 #include "waytator-stroke.h"
 
-static const char *
-waytator_tool_icon_name(WaytatorTool tool)
-{
-  switch (tool) {
-  case WAYTATOR_TOOL_PAN:
-    return "waytator-pan-symbolic";
-  case WAYTATOR_TOOL_RECTANGLE:
-    return "waytator-rectangle-symbolic";
-  case WAYTATOR_TOOL_CIRCLE:
-    return "waytator-circle-symbolic";
-  case WAYTATOR_TOOL_LINE:
-    return "waytator-line-symbolic";
-  case WAYTATOR_TOOL_ARROW:
-    return "waytator-arrow-symbolic";
-  case WAYTATOR_TOOL_OCR:
-    return "waytator-scanner-symbolic";
-  case WAYTATOR_TOOL_TEXT:
-    return "waytator-text-symbolic";
-  case WAYTATOR_TOOL_BLUR:
-    return "waytator-blur-symbolic";
-  default:
-    return "waytator-shapes-symbolic";
-  }
-}
-
 static gboolean
 waytator_tool_has_size_control(WaytatorTool tool)
 {
@@ -149,9 +124,6 @@ waytator_window_tool_toggled(GtkToggleButton *button,
   else
     self->active_tool = WAYTATOR_TOOL_BRUSH;
 
-  if (waytator_tool_is_shape(self->active_tool))
-    gtk_popover_popdown(self->shapes_popover);
-
   self->updating_ui = TRUE;
   gtk_range_set_value(GTK_RANGE(self->width_scale), self->tool_widths[self->active_tool]);
   gtk_color_dialog_button_set_rgba(self->color_button, &self->tool_colors[self->active_tool]);
@@ -270,18 +242,6 @@ waytator_window_update_tool_ui(WaytatorWindow *self)
   const gboolean is_move_tool = self->active_tool == WAYTATOR_TOOL_MOVE;
   const gboolean has_fill_color = self->active_tool == WAYTATOR_TOOL_RECTANGLE
                                || self->active_tool == WAYTATOR_TOOL_CIRCLE;
-  const gboolean is_shape_menu = self->active_tool == WAYTATOR_TOOL_RECTANGLE
-                              || self->active_tool == WAYTATOR_TOOL_CIRCLE
-                              || self->active_tool == WAYTATOR_TOOL_LINE;
-
-  if (is_shape_menu) {
-    gtk_menu_button_set_icon_name(self->shapes_tool_button,
-                                  waytator_tool_icon_name(self->active_tool));
-    gtk_widget_add_css_class(GTK_WIDGET(self->shapes_tool_button), "selected-tool");
-  } else {
-    gtk_widget_remove_css_class(GTK_WIDGET(self->shapes_tool_button), "selected-tool");
-  }
-
   gtk_widget_set_visible(self->settings_group,
                          self->texture != NULL && !is_pan_tool && !is_crop_tool && !is_ocr_tool && !is_move_tool);
   gtk_widget_set_visible(GTK_WIDGET(self->color_button),

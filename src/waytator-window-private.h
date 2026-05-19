@@ -45,8 +45,6 @@ struct _WaytatorWindow {
   GtkToggleButton *brush_tool_button;
   GtkToggleButton *highlighter_tool_button;
   GtkToggleButton *eraser_tool_button;
-  GtkMenuButton *shapes_tool_button;
-  GtkPopover *shapes_popover;
   GtkToggleButton *rectangle_tool_button;
   GtkToggleButton *circle_tool_button;
   GtkToggleButton *line_tool_button;
