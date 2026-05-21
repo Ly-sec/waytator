@@ -283,6 +283,20 @@ waytator_window_begin_draw_stroke(WaytatorWindow *self)
   if (waytator_tool_is_shape(self->active_tool))
     waytator_stroke_add_point(self->current_stroke, self->last_draw_x, self->last_draw_y);
 
+  if (self->active_tool == WAYTATOR_TOOL_NUMBERING) {
+    GPtrArray *strokes = waytator_window_strokes(self);
+    int count = 0;
+
+    for (guint i = 0; i < strokes->len; i++) {
+      WaytatorStroke *s = g_ptr_array_index(strokes, i);
+
+      if (s->tool == WAYTATOR_TOOL_NUMBERING)
+        count++;
+    }
+
+    self->current_stroke->text = g_strdup_printf("%d", count + 1);
+  }
+
   g_ptr_array_add(waytator_window_strokes(self), self->current_stroke);
   waytator_window_reset_save_button(self);
   gtk_widget_queue_draw(GTK_WIDGET(self->drawing_area));
@@ -576,8 +590,10 @@ waytator_window_erase_strokes(WaytatorWindow *self,
     }
   }
 
-  if (removed_stroke)
+  if (removed_stroke) {
+    waytator_strokes_renumber(strokes);
     waytator_window_reset_save_button(self);
+  }
 
   gtk_widget_queue_draw(GTK_WIDGET(self->drawing_area));
   return removed_stroke;
@@ -1098,6 +1114,9 @@ waytator_window_draw_update(GtkGestureDrag *gesture,
                                        TRUE,
                                        &image_x,
                                        &image_y))
+    return;
+
+  if (self->active_tool == WAYTATOR_TOOL_NUMBERING)
     return;
 
   if (self->active_tool == WAYTATOR_TOOL_MOVE) {

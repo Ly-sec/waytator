@@ -130,6 +130,8 @@ waytator_window_tool_toggled(GtkToggleButton *button,
     self->active_tool = WAYTATOR_TOOL_TEXT;
   else if (button == self->blur_tool_button)
     self->active_tool = WAYTATOR_TOOL_BLUR;
+  else if (button == self->numbering_tool_button)
+    self->active_tool = WAYTATOR_TOOL_NUMBERING;
   else if (button == self->move_tool_button)
     self->active_tool = WAYTATOR_TOOL_MOVE;
   else
@@ -239,7 +241,7 @@ void
 waytator_window_restore_strokes(WaytatorWindow *self,
                                 GPtrArray      *strokes)
 {
-  (void) strokes;
+  waytator_strokes_renumber(strokes);
   waytator_window_refresh_document_state(self);
   waytator_window_maybe_auto_copy_latest_change(self);
 }
@@ -306,6 +308,7 @@ waytator_window_setup_tool_signals(WaytatorWindow *self)
   waytator_window_connect_tool_toggle(self, self->ocr_tool_button);
   waytator_window_connect_tool_toggle(self, self->text_tool_button);
   waytator_window_connect_tool_toggle(self, self->blur_tool_button);
+  waytator_window_connect_tool_toggle(self, self->numbering_tool_button);
   waytator_window_connect_tool_toggle(self, self->move_tool_button);
 
   g_signal_connect(self->undo_button, "clicked", G_CALLBACK(waytator_window_undo_clicked), self);

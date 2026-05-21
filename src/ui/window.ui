@@ -354,6 +354,17 @@
                         </child>
 
                         <child>
+                          <object class="GtkToggleButton" id="numbering_tool_button">
+                            <property name="group">brush_tool_button</property>
+                            <property name="tooltip-text">Numbering</property>
+                            <property name="icon-name">waytator-numbering-symbolic</property>
+                            <style>
+                              <class name="flat"/>
+                            </style>
+                          </object>
+                        </child>
+
+                        <child>
                           <object class="GtkToggleButton" id="blur_tool_button">
                             <property name="group">brush_tool_button</property>
                             <property name="tooltip-text">Blur</property>

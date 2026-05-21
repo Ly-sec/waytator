@@ -39,6 +39,8 @@ waytator_tool_width(WaytatorTool tool)
     return 32.0;
   case WAYTATOR_TOOL_TEXT:
     return 24.0;
+  case WAYTATOR_TOOL_NUMBERING:
+    return 32.0;
   case WAYTATOR_TOOL_BRUSH:
   default:
     return 6.0;
@@ -204,6 +206,37 @@ waytator_stroke_render(cairo_t         *cr,
       cairo_set_font_size(cr, stroke->width);
       cairo_move_to(cr, point->x, point->y);
       cairo_show_text(cr, stroke->text);
+      cairo_restore(cr);
+    }
+    return;
+  }
+
+  if (stroke->tool == WAYTATOR_TOOL_NUMBERING) {
+    if (len >= 1) {
+      const WaytatorPoint *point = &g_array_index(stroke->points, WaytatorPoint, 0);
+      const double circle_radius = stroke->width / 2.0;
+      const double font_size = stroke->width * 0.6;
+      const char *label = stroke->text != NULL ? stroke->text : "?";
+      const double luminance = 0.299 * stroke->r + 0.587 * stroke->g + 0.114 * stroke->b;
+      cairo_text_extents_t extents;
+
+      cairo_save(cr);
+      cairo_arc(cr, point->x, point->y, circle_radius, 0.0, 2.0 * G_PI);
+      cairo_fill(cr);
+
+      cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+      cairo_set_font_size(cr, font_size);
+      cairo_text_extents(cr, label, &extents);
+
+      if (luminance > 0.5)
+        cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, stroke->a);
+      else
+        cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, stroke->a);
+
+      cairo_move_to(cr,
+                    point->x - extents.width / 2.0 - extents.x_bearing,
+                    point->y - extents.height / 2.0 - extents.y_bearing);
+      cairo_show_text(cr, label);
       cairo_restore(cr);
     }
     return;
@@ -593,6 +626,13 @@ waytator_stroke_intersects_segment(WaytatorStroke *stroke,
   if (stroke->tool == WAYTATOR_TOOL_TEXT)
     return waytator_text_intersects_segment(stroke, x0, y0, x1, y1, radius);
 
+  if (stroke->tool == WAYTATOR_TOOL_NUMBERING && stroke->points->len >= 1) {
+    const WaytatorPoint *center = &g_array_index(stroke->points, WaytatorPoint, 0);
+    const double circle_radius = stroke->width / 2.0;
+
+    return waytator_distance_to_segment(center->x, center->y, x0, y0, x1, y1) <= radius + circle_radius;
+  }
+
   if (waytator_tool_is_shape(stroke->tool) && stroke->points->len >= 2) {
     const WaytatorPoint *start = &g_array_index(stroke->points, WaytatorPoint, 0);
     const WaytatorPoint *end = &g_array_index(stroke->points, WaytatorPoint, stroke->points->len - 1);
@@ -700,6 +740,16 @@ waytator_stroke_get_bounds(WaytatorStroke *stroke,
     return;
   }
 
+  if (stroke->tool == WAYTATOR_TOOL_NUMBERING && stroke->points->len >= 1) {
+    const WaytatorPoint *p = &g_array_index(stroke->points, WaytatorPoint, 0);
+
+    *out_x = p->x - half_w;
+    *out_y = p->y - half_w;
+    *out_w = stroke->width;
+    *out_h = stroke->width;
+    return;
+  }
+
   if (stroke->tool == WAYTATOR_TOOL_TEXT && stroke->text != NULL && *stroke->text != '\0') {
     const WaytatorPoint *p = &g_array_index(stroke->points, WaytatorPoint, 0);
     cairo_surface_t *tmp = cairo_image_surface_create(CAIRO_FORMAT_A1, 1, 1);
@@ -734,4 +784,23 @@ waytator_stroke_get_bounds(WaytatorStroke *stroke,
   *out_y = min_y - half_w;
   *out_w = (max_x - min_x) + stroke->width;
   *out_h = (max_y - min_y) + stroke->width;
+}
+
+void
+waytator_strokes_renumber(GPtrArray *strokes)
+{
+  int count = 0;
+
+  if (strokes == NULL)
+    return;
+
+  for (guint i = 0; i < strokes->len; i++) {
+    WaytatorStroke *stroke = g_ptr_array_index(strokes, i);
+
+    if (stroke->tool == WAYTATOR_TOOL_NUMBERING) {
+      count++;
+      g_free(stroke->text);
+      stroke->text = g_strdup_printf("%d", count);
+    }
+  }
 }

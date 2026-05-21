@@ -63,6 +63,7 @@ waytator_tool_key_name(WaytatorTool tool)
   case WAYTATOR_TOOL_OCR:       return "ocr";
   case WAYTATOR_TOOL_TEXT:      return "text";
   case WAYTATOR_TOOL_BLUR:      return "blur";
+  case WAYTATOR_TOOL_NUMBERING: return "numbering";
   case WAYTATOR_TOOL_MOVE:      return "move";
   default:                      return "brush";
   }
@@ -84,6 +85,7 @@ waytator_tool_from_key_name(const char *name)
   if (g_strcmp0(name, "ocr") == 0)          return WAYTATOR_TOOL_OCR;
   if (g_strcmp0(name, "text") == 0)         return WAYTATOR_TOOL_TEXT;
   if (g_strcmp0(name, "blur") == 0)         return WAYTATOR_TOOL_BLUR;
+  if (g_strcmp0(name, "numbering") == 0)   return WAYTATOR_TOOL_NUMBERING;
   if (g_strcmp0(name, "move") == 0)         return WAYTATOR_TOOL_MOVE;
   return WAYTATOR_TOOL_BRUSH;
 }
@@ -2554,6 +2556,7 @@ waytator_window_bind_template_children(GtkWidgetClass *widget_class)
   gtk_widget_class_bind_template_child(widget_class, WaytatorWindow, ocr_tool_button);
   gtk_widget_class_bind_template_child(widget_class, WaytatorWindow, text_tool_button);
   gtk_widget_class_bind_template_child(widget_class, WaytatorWindow, blur_tool_button);
+  gtk_widget_class_bind_template_child(widget_class, WaytatorWindow, numbering_tool_button);
   gtk_widget_class_bind_template_child(widget_class, WaytatorWindow, move_tool_button);
   gtk_widget_class_bind_template_child(widget_class, WaytatorWindow, rotate_counter_clockwise_button);
   gtk_widget_class_bind_template_child(widget_class, WaytatorWindow, flip_horizontal_button);
@@ -2793,6 +2796,7 @@ waytator_window_button_for_tool(WaytatorWindow *self,
   case WAYTATOR_TOOL_OCR:       return self->ocr_tool_button;
   case WAYTATOR_TOOL_TEXT:      return self->text_tool_button;
   case WAYTATOR_TOOL_BLUR:      return self->blur_tool_button;
+  case WAYTATOR_TOOL_NUMBERING: return self->numbering_tool_button;
   case WAYTATOR_TOOL_MOVE:      return self->move_tool_button;
   default:                      return self->brush_tool_button;
   }

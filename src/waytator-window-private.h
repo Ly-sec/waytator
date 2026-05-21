@@ -52,6 +52,7 @@ struct _WaytatorWindow {
   GtkToggleButton *ocr_tool_button;
   GtkToggleButton *text_tool_button;
   GtkToggleButton *blur_tool_button;
+  GtkToggleButton *numbering_tool_button;
   GtkToggleButton *move_tool_button;
   GtkButton *rotate_counter_clockwise_button;
   GtkButton *flip_horizontal_button;

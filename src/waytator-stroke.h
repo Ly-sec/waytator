@@ -41,3 +41,4 @@ void waytator_stroke_get_bounds(WaytatorStroke *stroke,
                                 double         *y,
                                 double         *w,
                                 double         *h);
+void waytator_strokes_renumber(GPtrArray *strokes);
